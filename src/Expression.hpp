@@ -7,12 +7,14 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <map>
+#include <thread>
+#include <mutex>
 
 #include "display.h"
 
 using namespace std;
 
-#define ANIMATION_PATH "../animation/"
+#define EXPRESSIOS_PATH "../media/expressions/"
 
 enum ExpressionIndex {
     HAPPY,
@@ -21,22 +23,23 @@ enum ExpressionIndex {
 
 class Expression {
 public:
-    Expression(string stillPath);
+    Expression(string stillPath, string blinkPath = "");
     void addTransition(ExpressionIndex e, string p);
     bool transition(ExpressionIndex e, bool stay);
     bool still();
+    bool blink();
 private:
     string readFile(string path);
     bool play_video(string &buffer);
 
-    string stillVid_;
+    string stillVid_, blinkVid_;
     map<ExpressionIndex, string> transition_;
 };
 
 class HappyExpression: public Expression {
 public:
-    HappyExpression() : Expression("happy.h264") {
-        addTransition(CONFUSED, "confused-happy.h264");
+    HappyExpression() : Expression("happy.h264", "happy-blink.h264") {
+//        addTransition(CONFUSED, "confused-happy.h264");
     }
 };
 
@@ -60,9 +63,11 @@ public:
 private:
     ExpressionManager();
     ~ExpressionManager();
+    void blinkerThread();
 
     map<ExpressionIndex, Expression*> expressions_;
     ExpressionIndex current_;
+    mutex blinkerMutex_;
 };
 
 #endif /* SRC_EXPRESSION_HPP_ */

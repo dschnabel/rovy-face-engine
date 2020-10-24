@@ -1,7 +1,7 @@
 CC= g++
 INCLUDES= -I/opt/display-driver
 CFLAGS= -O0 -g
-LIBS= -ldisplay
+LIBS= -ldisplay -lpthread
 
 all: engine
 

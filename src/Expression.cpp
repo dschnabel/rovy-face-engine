@@ -1,11 +1,14 @@
 #include "Expression.hpp"
 
-Expression::Expression(string stillPath) {
-    stillVid_ = readFile(ANIMATION_PATH + stillPath);
+#include <random>
+
+Expression::Expression(string stillPath, string blinkPath) {
+    stillVid_ = readFile(EXPRESSIOS_PATH + stillPath);
+    blinkVid_ = readFile(EXPRESSIOS_PATH + blinkPath);
 }
 
 void Expression::addTransition(ExpressionIndex e, string p) {
-    transition_[e] = readFile(ANIMATION_PATH + p);
+    transition_[e] = readFile(EXPRESSIOS_PATH + p);
 }
 
 bool Expression::transition(ExpressionIndex e, bool stay) {
@@ -43,6 +46,17 @@ bool Expression::still() {
     return true;
 }
 
+bool Expression::blink() {
+    if (!blinkVid_.empty()) {
+        if (!play_video(blinkVid_)) {
+            cout << "Error during blink video" << endl;
+            return false;
+        }
+    }
+
+    return still();
+}
+
 string Expression::readFile(string path) {
     ifstream fin(path, ios::binary);
     if (!fin.good()) {
@@ -65,6 +79,8 @@ bool Expression::play_video(string &buffer) {
 ////////////////////////////////////////////////////////////////////////////////////
 
 bool ExpressionManager::transition(ExpressionIndex e, bool stay) {
+    lock_guard<std::mutex> lock(blinkerMutex_);
+
     if (e != current_) {
         if (expressions_.find(current_) == expressions_.end()) {
             cout << "Could not find expression " << current_ << endl;
@@ -79,13 +95,31 @@ bool ExpressionManager::transition(ExpressionIndex e, bool stay) {
     }
 }
 
+void ExpressionManager::blinkerThread() {
+    random_device rd;
+    mt19937 rng(rd());
+    uniform_int_distribution<int> uni(2, 10);
+
+    while (1) {
+        sleep(uni(rng));
+
+        {
+            lock_guard<std::mutex> lock(blinkerMutex_);
+            expressions_[current_]->blink();
+        }
+    }
+}
+
 ExpressionManager::ExpressionManager() : current_(HAPPY) {
     expressions_[HAPPY] = new HappyExpression();
-    expressions_[CONFUSED] = new ConfusedExpression();
+//    expressions_[CONFUSED] = new ConfusedExpression();
 
     if (dd_init() != 0) {
-        printf("Error during video driver init!\n");
+        cout << "Error during video driver init!\n" << endl;
     }
+
+    thread *t = new thread(&ExpressionManager::blinkerThread, this);
+    t->detach();
 }
 
 ExpressionManager::~ExpressionManager() {
