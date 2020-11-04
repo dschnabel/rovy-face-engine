@@ -95,34 +95,50 @@ bool ExpressionManager::transition(ExpressionIndex e, bool stay) {
     }
 }
 
+void ExpressionManager::setQuiet(bool quiet) {
+    quiet_ = quiet;
+}
+
 void ExpressionManager::blinkerThread() {
     random_device rd;
     mt19937 rng(rd());
     uniform_int_distribution<int> uni(2, 10);
+    const char *blinkAudio = blinkAudio_.c_str();
+    uint blinkAudioLen = blinkAudio_.length();
 
     while (1) {
         sleep(uni(rng));
 
         {
             lock_guard<std::mutex> lock(blinkerMutex_);
+
+            if (!quiet_) {
+                thread play_audio(ad_play_audio_buffer, blinkAudio, blinkAudioLen, 0.7);
+                play_audio.detach();
+            }
+
             expressions_[current_]->blink();
         }
     }
 }
 
-ExpressionManager::ExpressionManager() : current_(HAPPY) {
+ExpressionManager::ExpressionManager() : current_(HAPPY), quiet_(false) {
     expressions_[HAPPY] = new HappyExpression();
 //    expressions_[CONFUSED] = new ConfusedExpression();
 
     if (dd_init() != 0) {
         cout << "Error during video driver init!\n" << endl;
     }
+    ad_init();
+
+    blinkAudio_ = Expression::readFile(AUDIO_PATH + string("blink.mp3"));
 
     thread *t = new thread(&ExpressionManager::blinkerThread, this);
     t->detach();
 }
 
 ExpressionManager::~ExpressionManager() {
+    ad_destroy();
     dd_destroy();
 
     for (auto e : expressions_) {

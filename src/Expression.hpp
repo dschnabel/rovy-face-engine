@@ -11,10 +11,12 @@
 #include <mutex>
 
 #include "display.h"
+#include "audio.h"
 
 using namespace std;
 
 #define EXPRESSIOS_PATH "../media/expressions/"
+#define AUDIO_PATH "../media/audio/"
 
 enum ExpressionIndex {
     HAPPY,
@@ -28,8 +30,9 @@ public:
     bool transition(ExpressionIndex e, bool stay);
     bool still();
     bool blink();
+
+    static string readFile(string path);
 private:
-    string readFile(string path);
     bool play_video(string &buffer);
 
     string stillVid_, blinkVid_;
@@ -60,6 +63,7 @@ public:
     void operator=(ExpressionManager const&) = delete;
 
     bool transition(ExpressionIndex e, bool stay = false);
+    void setQuiet(bool quiet);
 private:
     ExpressionManager();
     ~ExpressionManager();
@@ -68,6 +72,8 @@ private:
     map<ExpressionIndex, Expression*> expressions_;
     ExpressionIndex current_;
     mutex blinkerMutex_;
+    string blinkAudio_;
+    bool quiet_;
 };
 
 #endif /* SRC_EXPRESSION_HPP_ */
