@@ -113,7 +113,8 @@ void ExpressionManager::blinkerThread() {
             lock_guard<std::mutex> lock(blinkerMutex_);
 
             if (!quiet_) {
-                thread play_audio(ad_play_audio_buffer, blinkAudio, blinkAudioLen, 0.7);
+                int id = ad_wait_ready();
+                thread play_audio(ad_play_audio_buffer, id, blinkAudio, blinkAudioLen, 0.7);
                 play_audio.detach();
             }
 
