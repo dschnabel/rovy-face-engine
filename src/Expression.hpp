@@ -30,6 +30,7 @@ public:
     bool transition(ExpressionIndex e, bool stay);
     bool still();
     bool blink();
+    bool hasBlink();
 
     static string readFile(string path);
 private:

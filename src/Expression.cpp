@@ -57,6 +57,10 @@ bool Expression::blink() {
     return still();
 }
 
+bool Expression::hasBlink() {
+    return !blinkVid_.empty();
+}
+
 string Expression::readFile(string path) {
     ifstream fin(path, ios::binary);
     if (!fin.good()) {
@@ -112,9 +116,8 @@ void ExpressionManager::blinkerThread() {
         {
             lock_guard<std::mutex> lock(blinkerMutex_);
 
-            if (!quiet_) {
-                int id = ad_wait_ready();
-                thread play_audio(ad_play_audio_buffer, id, blinkAudio, blinkAudioLen, 0.7);
+            if (!quiet_ && expressions_[current_]->hasBlink()) {
+                thread play_audio(ad_play_audio_buffer, ad_wait_ready(), blinkAudio, blinkAudioLen, 0.7, nullptr);
                 play_audio.detach();
             }
 
