@@ -65,6 +65,7 @@ public:
 
     bool transition(ExpressionIndex e, bool stay = false);
     void setQuiet(bool quiet);
+    void pauseBlink(bool pause);
 private:
     ExpressionManager();
     ~ExpressionManager();
@@ -75,6 +76,7 @@ private:
     mutex blinkerMutex_;
     string blinkAudio_;
     bool quiet_;
+    int pauseBlink_;
 };
 
 #endif /* SRC_EXPRESSION_HPP_ */

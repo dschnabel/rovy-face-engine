@@ -6,6 +6,9 @@
 using namespace std;
 
 void nextAnimation(map<int, string> &timing, string &mp3Path) {
+    ExpressionManager &manager = ExpressionManager::getInstance();
+    manager.pauseBlink(true);
+
     // init structure
     viseme_timing_t vt = (viseme_timing_t){PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER, 0, 0, NULL};
     vt.timing_size = timing.size();
@@ -32,6 +35,8 @@ void nextAnimation(map<int, string> &timing, string &mp3Path) {
 
     free(vt.timing);
     play_audio.join();
+
+    manager.pauseBlink(false);
 }
 
 int main(int argc, char **argv) {

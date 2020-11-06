@@ -103,6 +103,13 @@ void ExpressionManager::setQuiet(bool quiet) {
     quiet_ = quiet;
 }
 
+void ExpressionManager::pauseBlink(bool pause) {
+    lock_guard<std::mutex> lock(blinkerMutex_);
+
+    if (pause) pauseBlink_++;
+    else pauseBlink_--;
+}
+
 void ExpressionManager::blinkerThread() {
     random_device rd;
     mt19937 rng(rd());
@@ -116,17 +123,19 @@ void ExpressionManager::blinkerThread() {
         {
             lock_guard<std::mutex> lock(blinkerMutex_);
 
-            if (!quiet_ && expressions_[current_]->hasBlink()) {
-                thread play_audio(ad_play_audio_buffer, ad_wait_ready(), blinkAudio, blinkAudioLen, 0.7, nullptr);
-                play_audio.detach();
-            }
+            if (pauseBlink_ == 0) {
+                if (!quiet_ && expressions_[current_]->hasBlink()) {
+                    thread play_audio(ad_play_audio_buffer, ad_wait_ready(), blinkAudio, blinkAudioLen, 0.7, nullptr);
+                    play_audio.detach();
+                }
 
-            expressions_[current_]->blink();
+                expressions_[current_]->blink();
+            }
         }
     }
 }
 
-ExpressionManager::ExpressionManager() : current_(HAPPY), quiet_(false) {
+ExpressionManager::ExpressionManager() : current_(HAPPY), quiet_(false), pauseBlink_(0) {
     expressions_[HAPPY] = new HappyExpression();
 //    expressions_[CONFUSED] = new ConfusedExpression();
 
