@@ -1,6 +1,6 @@
 CC= g++
 INCLUDES= -I/opt/display-driver -I/opt/audio-driver
-CFLAGS= -O2
+CFLAGS= -O2 -Wno-psabi
 LIBS= -ldisplay -lpthread -laudio
 
 all: engine
