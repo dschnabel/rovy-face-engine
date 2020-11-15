@@ -125,7 +125,7 @@ void ExpressionManager::blinkerThread() {
 
             if (pauseBlink_ == 0) {
                 if (!quiet_ && expressions_[current_]->hasBlink()) {
-                    thread play_audio(ad_play_audio_buffer, ad_wait_ready(), blinkAudio, blinkAudioLen, 0.7, nullptr);
+                    thread play_audio(ad_play_mp3_buffer, ad_wait_ready(), blinkAudio, blinkAudioLen, 0.7, nullptr);
                     play_audio.detach();
                 }
 

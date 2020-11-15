@@ -21,7 +21,7 @@ void nextAnimation(map<int, string> &marks, string &mp3Path) {
     for (auto t : marks) vt.timing[i++] = t.first;
 
     // start playing audio in a separate thread
-    thread play_audio(ad_play_audio_file, ad_wait_ready(), mp3Path.c_str(), 0.7, &vt);
+    thread play_audio(ad_play_mp3_file, ad_wait_ready(), mp3Path.c_str(), 1.0, &vt);
 
     // receive notifications from the audio thread based on the given timings
     while (vt.next_timing < vt.timing_size) {
@@ -63,9 +63,12 @@ int main(int argc, char **argv) {
       marks[(*it)["time"]] = (*it)["value"];
     }
 
-    string speech = "../media/24000Hz.mp3";
+    string speech = "../media/hello-rovy.mp3";
     thread animate(nextAnimation, ref(marks), ref(speech));
-    animate.detach();
+//    animate.detach();
+    animate.join();
+
+    ad_play_ogg_file_pitched(0, "../media/poem.ogg", 1.0, NULL);
 
     while (1) sleep(5);
 }
