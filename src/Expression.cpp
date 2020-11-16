@@ -110,6 +110,10 @@ void ExpressionManager::pauseBlink(bool pause) {
     else pauseBlink_--;
 }
 
+int ExpressionManager::getPausedBlinkCount() {
+    return pauseBlink_;
+}
+
 void ExpressionManager::blinkerThread() {
     random_device rd;
     mt19937 rng(rd());

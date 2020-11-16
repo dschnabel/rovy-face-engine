@@ -7,21 +7,38 @@
 using namespace std;
 using json = nlohmann::json;
 
-void nextAnimation(map<int, string> &marks, string &mp3Path) {
+typedef shared_ptr<map<int, string>> Marks;
+
+bool hasSuffix(const std::string &str, const std::string &suffix)
+{
+    return str.size() >= suffix.size() &&
+           str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+void nextAnimation(Marks &marks, string &soundPath) {
     ExpressionManager &manager = ExpressionManager::getInstance();
     manager.pauseBlink(true);
 
     // init structure
     viseme_timing_t vt = (viseme_timing_t){PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER, 0, 0, NULL};
-    vt.timing_size = marks.size();
+    vt.timing_size = marks->size();
     vt.timing = (int *)calloc(vt.timing_size, sizeof(int));
 
     // copy each timing to the structure array
     int i = 0;
-    for (auto t : marks) vt.timing[i++] = t.first;
+    for (auto t : *marks) vt.timing[i++] = t.first;
 
     // start playing audio in a separate thread
-    thread play_audio(ad_play_mp3_file, ad_wait_ready(), mp3Path.c_str(), 1.0, &vt);
+    thread play_audio;
+    if (hasSuffix(soundPath, ".mp3")) {
+        play_audio = thread(ad_play_mp3_file, ad_wait_ready(), soundPath.c_str(), 1.0, &vt);
+    } else if (hasSuffix(soundPath, ".ogg")) {
+        play_audio = thread(ad_play_ogg_file, ad_wait_ready(), soundPath.c_str(), 1.0, &vt);
+    } else {
+        cout << "Unknown file type: " << soundPath << endl;
+        manager.pauseBlink(false);
+        return;
+    }
 
     // receive notifications from the audio thread based on the given timings
     while (vt.next_timing < vt.timing_size) {
@@ -31,14 +48,36 @@ void nextAnimation(map<int, string> &marks, string &mp3Path) {
 
         if (vt.next_timing <= vt.timing_size) {
             // TODO put transition expression here
-            cout << "timing: " << marks[vt.timing[vt.next_timing-1]] << endl;
+            cout << "mark: " << (*marks)[vt.timing[vt.next_timing-1]] << endl;
         }
+    }
+
+    if (manager.getPausedBlinkCount() == 1) {
+        // TODO put transition expression here
+        cout << "last mark: " << (*marks)[vt.timing[vt.timing_size-1]] << endl;
     }
 
     free(vt.timing);
     play_audio.join();
 
     manager.pauseBlink(false);
+}
+
+Marks getSpeechMarks(string marksPath) {
+    ifstream i(marksPath);
+    string str;
+
+    json speechMarks;
+    while(getline(i, str)) {
+        speechMarks["marks"].push_back(json::parse(str));
+    }
+
+    map<int, string> marks;
+    for (json::iterator it = speechMarks["marks"].begin(); it != speechMarks["marks"].end(); ++it) {
+        marks[(*it)["time"]] = (*it)["value"];
+    }
+
+    return make_shared<map<int, string>>(marks);
 }
 
 int main(int argc, char **argv) {
@@ -50,25 +89,25 @@ int main(int argc, char **argv) {
 
     manager.transition(HAPPY, true);
 
-    ifstream i("../media/speech.marks");
-    string str;
+    Marks marks = getSpeechMarks("../media/olympics.marks");
+    while (1) {
+        string speech = "../media/olympics.ogg";
+        thread animate(nextAnimation, ref(marks), ref(speech));
+        animate.detach();
+        sleep(7);cout<<endl;
 
-    json speechMarks;
-    while(getline(i, str)) {
-        speechMarks["marks"].push_back(json::parse(str));
+        speech = "../media/poem.ogg";
+        thread animate1(nextAnimation, ref(marks), ref(speech));
+        animate1.detach();
+        sleep(4);cout<<endl;
+
+        speech = "../media/hello-rovy.mp3";
+        thread animate2(nextAnimation, ref(marks), ref(speech));
+        animate2.detach();
+        sleep(2);cout<<endl;
+
+        sleep(15);
     }
-
-    map<int, string> marks;
-    for (json::iterator it = speechMarks["marks"].begin(); it != speechMarks["marks"].end(); ++it) {
-      marks[(*it)["time"]] = (*it)["value"];
-    }
-
-    string speech = "../media/hello-rovy.mp3";
-    thread animate(nextAnimation, ref(marks), ref(speech));
-//    animate.detach();
-    animate.join();
-
-    ad_play_ogg_file_pitched(0, "../media/poem.ogg", 1.0, NULL);
 
     while (1) sleep(5);
 }

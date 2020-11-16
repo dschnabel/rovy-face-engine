@@ -66,6 +66,7 @@ public:
     bool transition(ExpressionIndex e, bool stay = false);
     void setQuiet(bool quiet);
     void pauseBlink(bool pause);
+    int getPausedBlinkCount();
 private:
     ExpressionManager();
     ~ExpressionManager();
