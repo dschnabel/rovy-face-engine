@@ -3,11 +3,20 @@
 
 #include <string.h>
 #include <map>
+#include <sys/inotify.h>
 
 using namespace std;
 using json = nlohmann::json;
 
 typedef shared_ptr<map<int, string>> Marks;
+
+#define EVENT_SIZE (sizeof(struct inotify_event))
+#define EVENT_BUF_LEN (1024 * (EVENT_SIZE + 16 ))
+#define ACTION_PATH "/tmp/action/"
+#define MEDIA_PATH "/opt/face-engine/media/"
+
+static int notifyFd;
+static char notifyBuffer[EVENT_BUF_LEN];
 
 bool hasSuffix(const std::string &str, const std::string &suffix)
 {
@@ -15,7 +24,17 @@ bool hasSuffix(const std::string &str, const std::string &suffix)
            str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
-void nextAnimation(Marks &marks, string &soundPath) {
+bool exists(string path) {
+    return (access(path.c_str(), F_OK) != -1);
+}
+
+void nextAnimation(Marks marks, string soundPath) {
+    string fullPath = MEDIA_PATH + soundPath;
+    if (!exists(fullPath)) {
+        cout << "Invalid path: " << fullPath << endl;
+        return;
+    }
+
     ExpressionManager &manager = ExpressionManager::getInstance();
     manager.pauseBlink(true);
 
@@ -30,12 +49,12 @@ void nextAnimation(Marks &marks, string &soundPath) {
 
     // start playing audio in a separate thread
     thread play_audio;
-    if (hasSuffix(soundPath, ".mp3")) {
-        play_audio = thread(ad_play_mp3_file, ad_wait_ready(), soundPath.c_str(), 1.0, &vt);
-    } else if (hasSuffix(soundPath, ".ogg")) {
-        play_audio = thread(ad_play_ogg_file, ad_wait_ready(), soundPath.c_str(), 1.0, &vt);
+    if (hasSuffix(fullPath, ".mp3")) {
+        play_audio = thread(ad_play_mp3_file, ad_wait_ready(), fullPath.c_str(), 1.0, &vt);
+    } else if (hasSuffix(fullPath, ".ogg")) {
+        play_audio = thread(ad_play_ogg_file, ad_wait_ready(), fullPath.c_str(), 1.0, &vt);
     } else {
-        cout << "Unknown file type: " << soundPath << endl;
+        cout << "Unknown file type: " << fullPath << endl;
         manager.pauseBlink(false);
         return;
     }
@@ -64,11 +83,16 @@ void nextAnimation(Marks &marks, string &soundPath) {
 }
 
 Marks getSpeechMarks(string marksPath) {
-    ifstream i(marksPath);
+    string fullPath = MEDIA_PATH + marksPath;
+    if (!exists(fullPath)) {
+        throw string("Invalid path: ") + fullPath;
+    }
+
+    ifstream input(fullPath);
     string str;
 
     json speechMarks;
-    while(getline(i, str)) {
+    while(getline(input, str)) {
         speechMarks["marks"].push_back(json::parse(str));
     }
 
@@ -80,6 +104,33 @@ Marks getSpeechMarks(string marksPath) {
     return make_shared<map<int, string>>(marks);
 }
 
+json getNextAction() {
+    // blocking read
+    int length = read(notifyFd, notifyBuffer, EVENT_BUF_LEN);
+    if (length < 0) return "";
+
+    string filename;
+    int i = 0;
+    while (i < length) {
+        struct inotify_event *event = (struct inotify_event *)&notifyBuffer[i];
+        if (event->len) {
+            if (event->mask & IN_CREATE) {
+                filename = event->name;
+            }
+        }
+        i += EVENT_SIZE + event->len;
+    }
+
+    if (!filename.empty()) {
+        ifstream input(string(ACTION_PATH) + filename);
+        json action;
+        input >> action;
+        return action;
+    }
+
+    return json();
+}
+
 int main(int argc, char **argv) {
     ExpressionManager &manager = ExpressionManager::getInstance();
 
@@ -89,25 +140,31 @@ int main(int argc, char **argv) {
 
     manager.transition(HAPPY, true);
 
-    Marks marks = getSpeechMarks("../media/olympics.marks");
+    notifyFd = inotify_init();
+    if ( notifyFd < 0 ) {
+      perror("inotify_init");
+    }
+    int watch = inotify_add_watch(notifyFd, ACTION_PATH, IN_CREATE);
+
     while (1) {
-        string speech = "../media/olympics.ogg";
-        thread animate(nextAnimation, ref(marks), ref(speech));
-        animate.detach();
-        sleep(7);cout<<endl;
+        try {
+            // expected action format:
+            // {"marks":"olympics.marks", "sound":"olympics.ogg"}
+            json action = getNextAction();
+            if (!action.empty() && action.contains("marks") && action.contains("sound")) {
+                Marks marks = getSpeechMarks(action["marks"]);
+                string sound = action["sound"];
 
-        speech = "../media/poem.ogg";
-        thread animate1(nextAnimation, ref(marks), ref(speech));
-        animate1.detach();
-        sleep(4);cout<<endl;
-
-        speech = "../media/hello-rovy.mp3";
-        thread animate2(nextAnimation, ref(marks), ref(speech));
-        animate2.detach();
-        sleep(2);cout<<endl;
-
-        sleep(15);
+                thread animate(nextAnimation, marks, sound);
+                animate.detach();
+            } else {
+                cout << "Invalid or incomplete action file" << endl;
+            }
+        } catch (string &ex) {
+            cout << ex << endl;
+        }
     }
 
-    while (1) sleep(5);
+    inotify_rm_watch(notifyFd, watch);
+    close(notifyFd);
 }
