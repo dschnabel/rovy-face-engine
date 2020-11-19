@@ -13,6 +13,7 @@ typedef shared_ptr<map<int, string>> Marks;
 #define EVENT_SIZE (sizeof(struct inotify_event))
 #define EVENT_BUF_LEN (1024 * (EVENT_SIZE + 16 ))
 #define ACTION_PATH "/tmp/action/"
+#define ACTION_PREFIX "sound_"
 #define MEDIA_PATH "/opt/face-engine/media/"
 
 static int notifyFd;
@@ -114,7 +115,8 @@ json getNextAction() {
     while (i < length) {
         struct inotify_event *event = (struct inotify_event *)&notifyBuffer[i];
         if (event->len) {
-            if (event->mask & IN_CREATE) {
+            if ((event->mask & IN_CREATE) && (strncmp(event->name, ACTION_PREFIX, strlen(ACTION_PREFIX)) == 0)) {
+                unlink(string(ACTION_PATH + filename).c_str());
                 filename = event->name;
             }
         }
@@ -124,7 +126,16 @@ json getNextAction() {
     if (!filename.empty()) {
         ifstream input(string(ACTION_PATH) + filename);
         json action;
-        input >> action;
+
+        try {
+            input >> action;
+        } catch (json::exception &ex) {
+            cout << ex.what() << endl;
+        }
+
+        input.close();
+        unlink(string(ACTION_PATH + filename).c_str());
+
         return action;
     }
 
@@ -151,7 +162,9 @@ int main(int argc, char **argv) {
             // expected action format:
             // {"marks":"olympics.marks", "sound":"olympics.ogg"}
             json action = getNextAction();
-            if (!action.empty() && action.contains("marks") && action.contains("sound")) {
+            if (action.empty()) continue;
+
+            if (action.contains("marks") && action.contains("sound")) {
                 Marks marks = getSpeechMarks(action["marks"]);
                 string sound = action["sound"];
 
