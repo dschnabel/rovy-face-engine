@@ -52,9 +52,11 @@ bool Expression::blink() {
             cout << "Error during blink video" << endl;
             return false;
         }
+
+        return still();
     }
 
-    return still();
+    return true;
 }
 
 bool Expression::hasBlink() {
@@ -141,7 +143,10 @@ void ExpressionManager::blinkerThread() {
 
 ExpressionManager::ExpressionManager() : current_(HAPPY), quiet_(false), pauseBlink_(0) {
     expressions_[HAPPY] = new HappyExpression();
-//    expressions_[CONFUSED] = new ConfusedExpression();
+    expressions_[A] = new AExpression();
+    expressions_[I] = new IExpression();
+    expressions_[O] = new OExpression();
+    expressions_[P] = new PExpression();
 
     if (dd_init() != 0) {
         cout << "Error during video driver init!\n" << endl;

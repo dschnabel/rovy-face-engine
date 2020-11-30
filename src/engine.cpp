@@ -149,7 +149,19 @@ int main(int argc, char **argv) {
         manager.setQuiet(true);
     }
 
-    manager.transition(HAPPY, true);
+//    manager.transition(HAPPY, true);
+
+    ////
+    while (1) {
+        manager.transition(HAPPY, true);
+        sleep(2);
+        manager.transition(A);
+        manager.transition(A);
+        manager.transition(P);
+        manager.transition(O);
+        manager.transition(I);
+    }
+    ////
 
     notifyFd = inotify_init();
     if ( notifyFd < 0 ) {

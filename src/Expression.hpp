@@ -20,7 +20,10 @@ using namespace std;
 
 enum ExpressionIndex {
     HAPPY,
-    CONFUSED,
+    A,
+    I,
+    O,
+    P,
 };
 
 class Expression {
@@ -43,14 +46,50 @@ private:
 class HappyExpression: public Expression {
 public:
     HappyExpression() : Expression("happy.h264", "happy-blink.h264") {
-//        addTransition(CONFUSED, "confused-happy.h264");
+        addTransition(A, "a-happy.h264");
+        addTransition(I, "i-happy.h264");
+        addTransition(O, "o-happy.h264");
+        addTransition(P, "p-happy.h264");
     }
 };
 
-class ConfusedExpression: public Expression {
+class AExpression: public Expression {
 public:
-    ConfusedExpression() : Expression("confused.h264") {
-        addTransition(HAPPY, "happy-confused.h264");
+    AExpression() : Expression("a.h264") {
+        addTransition(HAPPY, "happy-a.h264");
+        addTransition(I, "i-a.h264");
+        addTransition(O, "o-a.h264");
+        addTransition(P, "p-a.h264");
+    }
+};
+
+class IExpression: public Expression {
+public:
+    IExpression() : Expression("i.h264") {
+        addTransition(HAPPY, "happy-i.h264");
+        addTransition(A, "a-i.h264");
+        addTransition(O, "o-i.h264");
+        addTransition(P, "p-i.h264");
+    }
+};
+
+class OExpression: public Expression {
+public:
+    OExpression() : Expression("o.h264") {
+        addTransition(HAPPY, "happy-o.h264");
+        addTransition(A, "a-o.h264");
+        addTransition(I, "i-o.h264");
+        addTransition(P, "p-o.h264");
+    }
+};
+
+class PExpression: public Expression {
+public:
+    PExpression() : Expression("p.h264") {
+        addTransition(HAPPY, "happy-p.h264");
+        addTransition(A, "a-p.h264");
+        addTransition(I, "i-p.h264");
+        addTransition(O, "o-p.h264");
     }
 };
 
