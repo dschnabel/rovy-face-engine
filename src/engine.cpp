@@ -8,7 +8,7 @@
 using namespace std;
 using json = nlohmann::json;
 
-typedef shared_ptr<map<int, string>> Marks;
+typedef shared_ptr<map<int, pair<ExpressionIndex, bool>>> Marks;
 
 #define EVENT_SIZE (sizeof(struct inotify_event))
 #define EVENT_BUF_LEN (1024 * (EVENT_SIZE + 16 ))
@@ -18,6 +18,7 @@ typedef shared_ptr<map<int, string>> Marks;
 
 static int notifyFd;
 static char notifyBuffer[EVENT_BUF_LEN];
+static map<string, ExpressionIndex> visemeMapping = {{"a", A}, {"i", I}, {"p", P}, {"o", O}};
 
 bool hasSuffix(const std::string &str, const std::string &suffix)
 {
@@ -45,8 +46,8 @@ void nextAnimation(Marks marks, string soundPath) {
     vt.timing = (int *)calloc(vt.timing_size, sizeof(int));
 
     // copy each timing to the structure array
-    int i = 0;
-    for (auto t : *marks) vt.timing[i++] = t.first;
+    int tCount = 0;
+    for (auto t : *marks) vt.timing[tCount++] = t.first;
 
     // start playing audio in a separate thread
     thread play_audio;
@@ -67,14 +68,18 @@ void nextAnimation(Marks marks, string soundPath) {
         pthread_mutex_unlock(&vt.lock);
 
         if (vt.next_timing <= vt.timing_size) {
-            // TODO put transition expression here
-            cout << "mark: " << (*marks)[vt.timing[vt.next_timing-1]] << endl;
+            pair<ExpressionIndex, bool> exp = (*marks)[vt.timing[vt.next_timing-1]];
+            manager.transition(exp.first, exp.second);
+            cout << "mark: " << exp.first << ", stay: " << exp.second << ", index: " << vt.next_timing-1 << endl;
         }
     }
 
     if (manager.getPausedBlinkCount() == 1) {
-        // TODO put transition expression here
-        cout << "last mark: " << (*marks)[vt.timing[vt.timing_size-1]] << endl;
+        pair<ExpressionIndex, bool> exp = (*marks)[vt.timing[tCount-1]];
+        manager.transition(exp.first, true);
+        cout << "last mark: " << exp.first << ", stay: " << true << ", index: " << tCount-1 << endl;
+        usleep(300000);
+        manager.transition(HAPPY, true);
     }
 
     free(vt.timing);
@@ -97,12 +102,21 @@ Marks getSpeechMarks(string marksPath) {
         speechMarks["marks"].push_back(json::parse(str));
     }
 
-    map<int, string> marks;
+    int prevTime = 0;
+    map<int, pair<ExpressionIndex, bool>> marks;
     for (json::iterator it = speechMarks["marks"].begin(); it != speechMarks["marks"].end(); ++it) {
-        marks[(*it)["time"]] = (*it)["value"];
+        int time = (*it)["time"];
+        string mark = (*it)["value"];
+        marks[time] = make_pair(visemeMapping[mark], false);
+
+        // set the stay flag to true if the interval between two visemes is large
+        if ((prevTime > 0) && (time - prevTime > 150)) {
+            marks[prevTime].second = true;
+        }
+        prevTime = time;
     }
 
-    return make_shared<map<int, string>>(marks);
+    return make_shared<map<int, pair<ExpressionIndex, bool>>>(marks);
 }
 
 json getNextAction() {
@@ -149,19 +163,7 @@ int main(int argc, char **argv) {
         manager.setQuiet(true);
     }
 
-//    manager.transition(HAPPY, true);
-
-    ////
-    while (1) {
-        manager.transition(HAPPY, true);
-        sleep(2);
-        manager.transition(A);
-        manager.transition(A);
-        manager.transition(P);
-        manager.transition(O);
-        manager.transition(I);
-    }
-    ////
+    manager.transition(HAPPY, true);
 
     notifyFd = inotify_init();
     if ( notifyFd < 0 ) {
@@ -172,7 +174,7 @@ int main(int argc, char **argv) {
     while (1) {
         try {
             // expected action format:
-            // {"marks":"olympics.marks", "sound":"olympics.ogg"}
+            // echo '{"marks":"audio/hello-rovy.marks", "sound":"audio/hello-rovy.mp3"}' > /tmp/action/sound_a
             json action = getNextAction();
             if (action.empty()) continue;
 
