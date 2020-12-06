@@ -67,10 +67,12 @@ void nextAnimation(Marks marks, string soundPath) {
         pthread_cond_wait(&vt.cond, &vt.lock);
         pthread_mutex_unlock(&vt.lock);
 
-        if (vt.next_timing <= vt.timing_size) {
-            pair<ExpressionIndex, bool> exp = (*marks)[vt.timing[vt.next_timing-1]];
+        int timing_index = -1;
+        while (vt.next_timing <= vt.timing_size && timing_index != vt.next_timing) {
+            timing_index = vt.next_timing;
+            pair<ExpressionIndex, bool> exp = (*marks)[vt.timing[timing_index-1]];
             manager.transition(exp.first, exp.second);
-            cout << "mark: " << exp.first << ", stay: " << exp.second << ", index: " << vt.next_timing-1 << endl;
+            cout << "mark: " << exp.first << ", stay: " << exp.second << ", index: " << timing_index-1 << endl;
         }
     }
 
