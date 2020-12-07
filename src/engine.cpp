@@ -18,7 +18,7 @@ typedef shared_ptr<map<int, pair<ExpressionIndex, bool>>> Marks;
 
 static int notifyFd;
 static char notifyBuffer[EVENT_BUF_LEN];
-static map<string, ExpressionIndex> visemeMapping = {{"a", A}, {"i", I}, {"p", P}, {"o", O}};
+static map<string, ExpressionIndex> visemeMapping = {{"sil", HAPPY}, {"a", A}, {"i", I}, {"p", P}, {"o", O}};
 
 bool hasSuffix(const std::string &str, const std::string &suffix)
 {
@@ -71,15 +71,15 @@ void nextAnimation(Marks marks, string soundPath) {
         while (vt.next_timing <= vt.timing_size && timing_index != vt.next_timing) {
             timing_index = vt.next_timing;
             pair<ExpressionIndex, bool> exp = (*marks)[vt.timing[timing_index-1]];
-            manager.transition(exp.first, exp.second);
             cout << "mark: " << exp.first << ", stay: " << exp.second << ", index: " << timing_index-1 << endl;
+            manager.transition(exp.first, exp.second);
         }
     }
 
     if (manager.getPausedBlinkCount() == 1) {
         pair<ExpressionIndex, bool> exp = (*marks)[vt.timing[tCount-1]];
-        manager.transition(exp.first, true);
         cout << "last mark: " << exp.first << ", stay: " << true << ", index: " << tCount-1 << endl;
+        manager.transition(exp.first, true);
         usleep(300000);
         manager.transition(HAPPY, true);
     }
@@ -108,11 +108,24 @@ Marks getSpeechMarks(string marksPath) {
     map<int, pair<ExpressionIndex, bool>> marks;
     for (json::iterator it = speechMarks["marks"].begin(); it != speechMarks["marks"].end(); ++it) {
         int time = (*it)["time"];
-        string mark = (*it)["value"];
-        marks[time] = make_pair(visemeMapping[mark], false);
+        string value = (*it)["value"];
 
-        // set the stay flag to true if the interval between two visemes is large
-        if ((prevTime > 0) && (time - prevTime > 150)) {
+        // set viseme
+        ExpressionIndex viseme = visemeMapping[value];
+        if (viseme == UNDEF) {
+            if (marks[prevTime].first != UNDEF) {
+                viseme = marks[prevTime].first;
+            } else {
+                viseme = HAPPY;
+            }
+        }
+
+        marks[time] = make_pair(viseme, false);
+
+        // set the stay flag to true if the interval between two visemes is large:
+        // transition + stay = 6 + 4 = 10 frames
+        // 10 frames @ 60 fps = 167 ms
+        if ((prevTime > 0) && (time - prevTime > 167)) {
             marks[prevTime].second = true;
         }
         prevTime = time;

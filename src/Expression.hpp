@@ -19,6 +19,7 @@ using namespace std;
 #define AUDIO_PATH "../media/audio/"
 
 enum ExpressionIndex {
+    UNDEF,
     HAPPY,
     A,
     I,
