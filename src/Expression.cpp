@@ -7,32 +7,6 @@ Expression::Expression(string stillPath, string blinkPath) {
     blinkVid_ = readFile(EXPRESSIOS_PATH + blinkPath);
 }
 
-void Expression::addTransition(ExpressionIndex e, string p) {
-    transition_[e] = readFile(EXPRESSIOS_PATH + p);
-}
-
-bool Expression::transition(ExpressionIndex e, bool stay) {
-    if (transition_.find(e) == transition_.end()) {
-        cout << "Could not find transition " << e << endl;
-        return false;
-    }
-
-    if (transition_[e].empty()) {
-        cout << "Empty transition video " << e << endl;
-        return false;
-    }
-    if (!play_video(transition_[e])) {
-        cout << "Error during transition video " << e << endl;
-        return false;
-    }
-
-    if (stay) {
-        return still();
-    } else {
-        return true;
-    }
-}
-
 bool Expression::still() {
     if (stillVid_.empty()) {
         cout << "Empty still video" << endl;
@@ -84,21 +58,26 @@ bool Expression::play_video(string &buffer) {
 
 ////////////////////////////////////////////////////////////////////////////////////
 
-bool ExpressionManager::transition(ExpressionIndex e, bool stay) {
+bool ExpressionManager::transition(ExpressionIndex e) {
     lock_guard<std::mutex> lock(blinkerMutex_);
 
-    if (e != current_) {
-        if (expressions_.find(current_) == expressions_.end()) {
-            cout << "Could not find expression " << current_ << endl;
-            return false;
-        }
+    current_ = e;
 
-        bool ret = expressions_[e]->transition(current_, stay);
-        current_ = e;
-        return ret;
-    } else {
-        return expressions_[e]->still();
+    bool ret = expressions_[e]->still();
+
+	// in case of SPEAK_OPEN we need to close lips (SPEAK_CLOSE) again afterward
+    if (e == SPEAK_OPEN) {
+        // add some randomized timing to make lip sync appear less predictable
+        static random_device rd;
+        static mt19937 rng(rd());
+        static uniform_int_distribution<int> uni(70000, 90000);
+
+        usleep(uni(rng));
+        expressions_[SPEAK_CLOSE]->still();
+        usleep(uni(rng) - 40000);
     }
+
+    return ret;
 }
 
 void ExpressionManager::setQuiet(bool quiet) {
@@ -143,10 +122,8 @@ void ExpressionManager::blinkerThread() {
 
 ExpressionManager::ExpressionManager() : current_(HAPPY), quiet_(false), pauseBlink_(0) {
     expressions_[HAPPY] = new HappyExpression();
-    expressions_[A] = new AExpression();
-    expressions_[I] = new IExpression();
-    expressions_[O] = new OExpression();
-    expressions_[P] = new PExpression();
+    expressions_[SPEAK_OPEN] = new SpeakOpenExpression();
+    expressions_[SPEAK_CLOSE] = new SpeakCloseExpression();
 
     if (dd_init() != 0) {
         cout << "Error during video driver init!\n" << endl;

@@ -21,17 +21,13 @@ using namespace std;
 enum ExpressionIndex {
     UNDEF,
     HAPPY,
-    A,
-    I,
-    O,
-    P,
+    SPEAK_OPEN,
+    SPEAK_CLOSE,
 };
 
 class Expression {
 public:
     Expression(string stillPath, string blinkPath = "");
-    void addTransition(ExpressionIndex e, string p);
-    bool transition(ExpressionIndex e, bool stay);
     bool still();
     bool blink();
     bool hasBlink();
@@ -41,57 +37,21 @@ private:
     bool play_video(string &buffer);
 
     string stillVid_, blinkVid_;
-    map<ExpressionIndex, string> transition_;
 };
 
 class HappyExpression: public Expression {
 public:
-    HappyExpression() : Expression("happy.h264", "happy-blink.h264") {
-        addTransition(A, "a-happy.h264");
-        addTransition(I, "i-happy.h264");
-        addTransition(O, "o-happy.h264");
-        addTransition(P, "p-happy.h264");
-    }
+    HappyExpression() : Expression("happy.h264", "happy-blink.h264") {}
 };
 
-class AExpression: public Expression {
+class SpeakOpenExpression: public Expression {
 public:
-    AExpression() : Expression("a.h264") {
-        addTransition(HAPPY, "happy-a.h264");
-        addTransition(I, "i-a.h264");
-        addTransition(O, "o-a.h264");
-        addTransition(P, "p-a.h264");
-    }
+    SpeakOpenExpression() : Expression("speak-open.h264") {}
 };
 
-class IExpression: public Expression {
+class SpeakCloseExpression: public Expression {
 public:
-    IExpression() : Expression("i.h264") {
-        addTransition(HAPPY, "happy-i.h264");
-        addTransition(A, "a-i.h264");
-        addTransition(O, "o-i.h264");
-        addTransition(P, "p-i.h264");
-    }
-};
-
-class OExpression: public Expression {
-public:
-    OExpression() : Expression("o.h264") {
-        addTransition(HAPPY, "happy-o.h264");
-        addTransition(A, "a-o.h264");
-        addTransition(I, "i-o.h264");
-        addTransition(P, "p-o.h264");
-    }
-};
-
-class PExpression: public Expression {
-public:
-    PExpression() : Expression("p.h264") {
-        addTransition(HAPPY, "happy-p.h264");
-        addTransition(A, "a-p.h264");
-        addTransition(I, "i-p.h264");
-        addTransition(O, "o-p.h264");
-    }
+    SpeakCloseExpression() : Expression("speak-close.h264") {}
 };
 
 class ExpressionManager {
@@ -103,7 +63,7 @@ public:
     ExpressionManager(ExpressionManager const&) = delete;
     void operator=(ExpressionManager const&) = delete;
 
-    bool transition(ExpressionIndex e, bool stay = false);
+    bool transition(ExpressionIndex e);
     void setQuiet(bool quiet);
     void pauseBlink(bool pause);
     int getPausedBlinkCount();

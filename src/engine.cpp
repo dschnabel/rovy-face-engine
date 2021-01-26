@@ -8,7 +8,7 @@
 using namespace std;
 using json = nlohmann::json;
 
-typedef shared_ptr<map<int, pair<ExpressionIndex, bool>>> Marks;
+typedef shared_ptr<map<int, ExpressionIndex>> Marks;
 
 #define EVENT_SIZE (sizeof(struct inotify_event))
 #define EVENT_BUF_LEN (1024 * (EVENT_SIZE + 16 ))
@@ -18,7 +18,26 @@ typedef shared_ptr<map<int, pair<ExpressionIndex, bool>>> Marks;
 
 static int notifyFd;
 static char notifyBuffer[EVENT_BUF_LEN];
-static map<string, ExpressionIndex> visemeMapping = {{"sil", HAPPY}, {"a", A}, {"i", I}, {"p", P}, {"o", O}};
+static map<string, ExpressionIndex> visemeMapping =
+    {
+            {"sil", HAPPY},
+            {"p", SPEAK_CLOSE},
+            {"t", SPEAK_OPEN},
+            {"S", SPEAK_CLOSE},
+            {"T", SPEAK_CLOSE},
+            {"f", SPEAK_CLOSE},
+            {"k", SPEAK_OPEN},
+            {"i", SPEAK_OPEN},
+            {"r", SPEAK_CLOSE},
+            {"s", SPEAK_OPEN},
+            {"u", SPEAK_OPEN},
+            {"@", SPEAK_OPEN},
+            {"a", SPEAK_OPEN},
+            {"e", SPEAK_OPEN},
+            {"E", SPEAK_OPEN},
+            {"o", SPEAK_OPEN},
+            {"O", SPEAK_OPEN}
+    };
 
 bool hasSuffix(const std::string &str, const std::string &suffix)
 {
@@ -70,18 +89,18 @@ void nextAnimation(Marks marks, string soundPath) {
         int timing_index = -1;
         while (vt.next_timing <= vt.timing_size && timing_index != vt.next_timing) {
             timing_index = vt.next_timing;
-            pair<ExpressionIndex, bool> exp = (*marks)[vt.timing[timing_index-1]];
-            cout << "mark: " << exp.first << ", stay: " << exp.second << ", index: " << timing_index-1 << endl;
-            manager.transition(exp.first, exp.second);
+            ExpressionIndex exp = (*marks)[vt.timing[timing_index-1]];
+            cout << "mark: " << exp << ", index: " << timing_index-1 << endl;
+            manager.transition(exp);
         }
     }
 
     if (manager.getPausedBlinkCount() == 1) {
-        pair<ExpressionIndex, bool> exp = (*marks)[vt.timing[tCount-1]];
-        cout << "last mark: " << exp.first << ", stay: " << true << ", index: " << tCount-1 << endl;
-        manager.transition(exp.first, true);
+        ExpressionIndex exp = (*marks)[vt.timing[tCount-1]];
+        cout << "last mark: " << exp << ", index: " << tCount-1 << endl;
+        manager.transition(exp);
         usleep(300000);
-        manager.transition(HAPPY, true);
+        manager.transition(HAPPY);
     }
 
     free(vt.timing);
@@ -105,7 +124,7 @@ Marks getSpeechMarks(string marksPath) {
     }
 
     int prevTime = 0;
-    map<int, pair<ExpressionIndex, bool>> marks;
+    map<int, ExpressionIndex> marks;
     for (json::iterator it = speechMarks["marks"].begin(); it != speechMarks["marks"].end(); ++it) {
         int time = (*it)["time"];
         string value = (*it)["value"];
@@ -113,25 +132,19 @@ Marks getSpeechMarks(string marksPath) {
         // set viseme
         ExpressionIndex viseme = visemeMapping[value];
         if (viseme == UNDEF) {
-            if (marks[prevTime].first != UNDEF) {
-                viseme = marks[prevTime].first;
+            if (marks[prevTime] != UNDEF) {
+                viseme = marks[prevTime];
             } else {
                 viseme = HAPPY;
             }
         }
 
-        marks[time] = make_pair(viseme, false);
+        marks[time] = viseme;
 
-        // set the stay flag to true if the interval between two visemes is large:
-        // transition + stay = 6 + 4 = 10 frames
-        // 10 frames @ 60 fps = 167 ms
-        if ((prevTime > 0) && (time - prevTime > 167)) {
-            marks[prevTime].second = true;
-        }
         prevTime = time;
     }
 
-    return make_shared<map<int, pair<ExpressionIndex, bool>>>(marks);
+    return make_shared<map<int, ExpressionIndex>>(marks);
 }
 
 json getNextAction() {
@@ -178,7 +191,7 @@ int main(int argc, char **argv) {
         manager.setQuiet(true);
     }
 
-    manager.transition(HAPPY, true);
+    manager.transition(HAPPY);
 
     notifyFd = inotify_init();
     if ( notifyFd < 0 ) {
