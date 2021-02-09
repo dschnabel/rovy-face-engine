@@ -74,7 +74,7 @@ private:
 
     map<ExpressionIndex, Expression*> expressions_;
     ExpressionIndex current_;
-    mutex blinkerMutex_;
+    mutex blinkerMutex_, transitionMutex_;
     string blinkAudio_;
     bool quiet_;
     int pauseBlink_;

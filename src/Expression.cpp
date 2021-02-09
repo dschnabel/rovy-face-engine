@@ -59,7 +59,7 @@ bool Expression::play_video(string &buffer) {
 ////////////////////////////////////////////////////////////////////////////////////
 
 bool ExpressionManager::transition(ExpressionIndex e) {
-    lock_guard<std::mutex> lock(blinkerMutex_);
+    lock_guard<std::mutex> lock(transitionMutex_);
 
     current_ = e;
 
@@ -109,6 +109,8 @@ void ExpressionManager::blinkerThread() {
             lock_guard<std::mutex> lock(blinkerMutex_);
 
             if (pauseBlink_ == 0) {
+                lock_guard<std::mutex> lock2(transitionMutex_);
+
                 if (!quiet_ && expressions_[current_]->hasBlink()) {
                     thread play_audio(ad_play_mp3_buffer, ad_wait_ready(), blinkAudio, blinkAudioLen, 0.7, nullptr);
                     play_audio.detach();

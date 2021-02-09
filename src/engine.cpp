@@ -77,27 +77,41 @@ void nextAnimation(Marks marks, string soundPath) {
     } else {
         cout << "Unknown file type: " << fullPath << endl;
         manager.pauseBlink(false);
+        free(vt.timing);
         return;
     }
 
     // receive notifications from the audio thread based on the given timings
     while (vt.next_timing < vt.timing_size) {
         pthread_mutex_lock(&vt.lock);
-        pthread_cond_wait(&vt.cond, &vt.lock);
+
+        struct timespec timeToWait;
+        clock_gettime(CLOCK_REALTIME, &timeToWait);
+        timeToWait.tv_sec += 3;
+        int err = pthread_cond_timedwait(&vt.cond, &vt.lock, &timeToWait);
+        // give up after 3 seconds and clean up
+        if (err == ETIMEDOUT) {
+            //cout<<"ETIMEDOUT: "<<this_thread::get_id()<<endl;
+            manager.pauseBlink(false);
+            free(vt.timing);
+            play_audio.join();
+            return;
+        }
+
         pthread_mutex_unlock(&vt.lock);
 
         int timing_index = -1;
         while (vt.next_timing <= vt.timing_size && timing_index != vt.next_timing) {
             timing_index = vt.next_timing;
             ExpressionIndex exp = (*marks)[vt.timing[timing_index-1]];
-            cout << "mark: " << exp << ", index: " << timing_index-1 << endl;
+            //cout << "mark: " << exp << ", index: " << timing_index-1 << endl;
             manager.transition(exp);
         }
     }
 
     if (manager.getPausedBlinkCount() == 1) {
         ExpressionIndex exp = (*marks)[vt.timing[tCount-1]];
-        cout << "last mark: " << exp << ", index: " << tCount-1 << endl;
+        //cout << "last mark: " << exp << ", index: " << tCount-1 << endl;
         manager.transition(exp);
         usleep(300000);
         manager.transition(HAPPY);
