@@ -13,7 +13,8 @@ typedef shared_ptr<map<int, ExpressionIndex>> Marks;
 #define EVENT_SIZE (sizeof(struct inotify_event))
 #define EVENT_BUF_LEN (1024 * (EVENT_SIZE + 16 ))
 #define ACTION_PATH "/tmp/action/"
-#define ACTION_PREFIX "sound_"
+#define ACTION_PREFIX "sound_set"
+#define ACTION_DONE "sound_done"
 #define MEDIA_PATH "/opt/face-engine/media/"
 
 static int notifyFd;
@@ -121,6 +122,8 @@ void nextAnimation(Marks marks, string soundPath) {
     play_audio.join();
 
     manager.pauseBlink(false);
+
+    system("touch " ACTION_PATH ACTION_DONE);
 }
 
 Marks getSpeechMarks(string marksPath) {
@@ -181,6 +184,19 @@ json getNextAction() {
 
     if (!filename.empty()) {
         ifstream input(string(ACTION_PATH) + filename);
+        int counter = 0;
+        while (input.peek() == ifstream::traits_type::eof()) {
+            input.close();
+            usleep(1000);
+            input.open(string(ACTION_PATH) + filename);
+            if (counter++ > 200) break;
+        }
+
+        if (counter >= 200) {
+            cout << "Empty action file" << endl;
+            return json();
+        }
+
         json action;
 
         try {
