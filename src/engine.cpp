@@ -3,22 +3,18 @@
 
 #include <string.h>
 #include <map>
-#include <sys/inotify.h>
+
+#include <ros/ros.h>
+#include <rovy_msgs/AudioPlay.h>
+#include <rovy_msgs/AudioDone.h>
 
 using namespace std;
 using json = nlohmann::json;
 
 typedef shared_ptr<map<int, ExpressionIndex>> Marks;
 
-#define EVENT_SIZE (sizeof(struct inotify_event))
-#define EVENT_BUF_LEN (1024 * (EVENT_SIZE + 16 ))
-#define ACTION_PATH "/tmp/action/"
-#define ACTION_PREFIX "sound_set"
-#define ACTION_DONE "sound_done"
 #define MEDIA_PATH "/opt/face-engine/media/"
 
-static int notifyFd;
-static char notifyBuffer[EVENT_BUF_LEN];
 static map<string, ExpressionIndex> visemeMapping =
     {
             {"sil", HAPPY},
@@ -40,6 +36,8 @@ static map<string, ExpressionIndex> visemeMapping =
             {"O", SPEAK_OPEN}
     };
 
+static ros::Publisher audioDonePub;
+
 bool hasSuffix(const std::string &str, const std::string &suffix)
 {
     return str.size() >= suffix.size() &&
@@ -50,10 +48,18 @@ bool exists(string path) {
     return (access(path.c_str(), F_OK) != -1);
 }
 
+void publishDoneMsg(bool status) {
+    // publish audio done message
+    rovy_msgs::AudioDone msg;
+    msg.status = status;
+    audioDonePub.publish(msg);
+}
+
 void nextAnimation(Marks marks, string soundPath) {
     string fullPath = MEDIA_PATH + soundPath;
     if (!exists(fullPath)) {
         cout << "Invalid path: " << fullPath << endl;
+        publishDoneMsg(false);
         return;
     }
 
@@ -79,6 +85,7 @@ void nextAnimation(Marks marks, string soundPath) {
         cout << "Unknown file type: " << fullPath << endl;
         manager.pauseBlink(false);
         free(vt.timing);
+        publishDoneMsg(false);
         return;
     }
 
@@ -96,6 +103,7 @@ void nextAnimation(Marks marks, string soundPath) {
             manager.pauseBlink(false);
             free(vt.timing);
             play_audio.join();
+            publishDoneMsg(false);
             return;
         }
 
@@ -123,7 +131,7 @@ void nextAnimation(Marks marks, string soundPath) {
 
     manager.pauseBlink(false);
 
-    system("touch " ACTION_PATH ACTION_DONE);
+    publishDoneMsg(true);
 }
 
 Marks getSpeechMarks(string marksPath) {
@@ -164,57 +172,24 @@ Marks getSpeechMarks(string marksPath) {
     return make_shared<map<int, ExpressionIndex>>(marks);
 }
 
-json getNextAction() {
-    // blocking read
-    int length = read(notifyFd, notifyBuffer, EVENT_BUF_LEN);
-    if (length < 0) return "";
+void audioPlayCallback(const rovy_msgs::AudioPlay& msg) {
+    try {
+        if (!msg.audioPath.empty() && !msg.marksPath.empty()) {
+            Marks marks = getSpeechMarks(msg.marksPath);
+            string sound = msg.audioPath;
 
-    string filename;
-    int i = 0;
-    while (i < length) {
-        struct inotify_event *event = (struct inotify_event *)&notifyBuffer[i];
-        if (event->len) {
-            if ((event->mask & IN_CREATE) && (strncmp(event->name, ACTION_PREFIX, strlen(ACTION_PREFIX)) == 0)) {
-                unlink(string(ACTION_PATH + filename).c_str());
-                filename = event->name;
-            }
+            thread animate(nextAnimation, marks, sound);
+            animate.detach();
+        } else {
+            cout << "Empty audioPath and/or marksPath" << endl;
         }
-        i += EVENT_SIZE + event->len;
+    } catch (string &ex) {
+        cout << ex << endl;
     }
-
-    if (!filename.empty()) {
-        ifstream input(string(ACTION_PATH) + filename);
-        int counter = 0;
-        while (input.peek() == ifstream::traits_type::eof()) {
-            input.close();
-            usleep(1000);
-            input.open(string(ACTION_PATH) + filename);
-            if (counter++ > 200) break;
-        }
-
-        if (counter >= 200) {
-            cout << "Empty action file" << endl;
-            return json();
-        }
-
-        json action;
-
-        try {
-            input >> action;
-        } catch (json::exception &ex) {
-            cout << ex.what() << endl;
-        }
-
-        input.close();
-        unlink(string(ACTION_PATH + filename).c_str());
-
-        return action;
-    }
-
-    return json();
 }
 
 int main(int argc, char **argv) {
+    ros::init(argc, argv, "rovy_face_engine");
     ExpressionManager &manager = ExpressionManager::getInstance();
 
     if (argc == 2 && strcmp(argv[1], "quiet") == 0) {
@@ -223,33 +198,8 @@ int main(int argc, char **argv) {
 
     manager.transition(HAPPY);
 
-    notifyFd = inotify_init();
-    if ( notifyFd < 0 ) {
-      perror("inotify_init");
-    }
-    int watch = inotify_add_watch(notifyFd, ACTION_PATH, IN_CREATE);
-
-    while (1) {
-        try {
-            // expected action format:
-            // echo '{"marks":"audio/hello-rovy.marks", "sound":"audio/hello-rovy.mp3"}' > /tmp/action/sound_a
-            json action = getNextAction();
-            if (action.empty()) continue;
-
-            if (action.contains("marks") && action.contains("sound")) {
-                Marks marks = getSpeechMarks(action["marks"]);
-                string sound = action["sound"];
-
-                thread animate(nextAnimation, marks, sound);
-                animate.detach();
-            } else {
-                cout << "Invalid or incomplete action file" << endl;
-            }
-        } catch (string &ex) {
-            cout << ex << endl;
-        }
-    }
-
-    inotify_rm_watch(notifyFd, watch);
-    close(notifyFd);
+    ros::NodeHandle nh;
+    ros::Subscriber audioPlaySub = nh.subscribe("rovy/action/audio_play", 1, audioPlayCallback);
+    audioDonePub = nh.advertise<rovy_msgs::AudioDone>("rovy/action/audio_done", 1);
+    ros::spin();
 }

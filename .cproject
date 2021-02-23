@@ -50,6 +50,8 @@
                                     <listOptionValue builtIn="false" value="&quot;${workspace_loc:/display-driver}&quot;"/>
                                     									
                                     <listOptionValue builtIn="false" value="&quot;${workspace_loc:/audio-driver}&quot;"/>
+                                    									
+                                    <listOptionValue builtIn="false" value="/home/daniel/pi4/rovy-mount/opt/ros/melodic/include"/>
                                     								
                                 </option>
                                 								
