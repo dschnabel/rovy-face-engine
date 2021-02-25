@@ -1,7 +1,7 @@
 CC= g++
-INCLUDES= -I/opt/display-driver -I/opt/audio-driver -I/opt/ros/melodic/include
-CFLAGS= -O2 -Wno-psabi -L/opt/ros/melodic/lib
-LIBS= -ldisplay -lpthread -laudio -lpthread -lroscpp -lrosconsole_backend_interface -lrosconsole_log4cxx -lcpp_common -lxmlrpcpp -lroscpp_serialization -lrosconsole -lrostime
+INCLUDES= -I/opt/display-driver -I/opt/audio-driver
+CFLAGS= -O2 -Wno-psabi
+LIBS= -ldisplay -lpthread -laudio -lpthread -lrovy_ros_helper
 
 all: engine
 

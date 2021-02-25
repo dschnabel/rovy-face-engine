@@ -1,12 +1,10 @@
 #include "Expression.hpp"
 #include "json.hpp"
 
+#include <rovy_ros_helper.h>
+
 #include <string.h>
 #include <map>
-
-#include <ros/ros.h>
-#include <rovy_msgs/AudioPlay.h>
-#include <rovy_msgs/AudioDone.h>
 
 using namespace std;
 using json = nlohmann::json;
@@ -36,8 +34,6 @@ static map<string, ExpressionIndex> visemeMapping =
             {"O", SPEAK_OPEN}
     };
 
-static ros::Publisher audioDonePub;
-
 bool hasSuffix(const std::string &str, const std::string &suffix)
 {
     return str.size() >= suffix.size() &&
@@ -48,18 +44,16 @@ bool exists(string path) {
     return (access(path.c_str(), F_OK) != -1);
 }
 
-void publishDoneMsg(bool status) {
-    // publish audio done message
-    rovy_msgs::AudioDone msg;
-    msg.status = status;
-    audioDonePub.publish(msg);
+void publishDoneMsg(uint16_t id, int8_t status) {
+    RovyRosHelper &rosHelper = RovyRosHelper::getInstance();
+    rosHelper.done(id, status);
 }
 
-void nextAnimation(Marks marks, string soundPath) {
+void nextAnimation(Marks marks, string soundPath, uint16_t id) {
     string fullPath = MEDIA_PATH + soundPath;
     if (!exists(fullPath)) {
         cout << "Invalid path: " << fullPath << endl;
-        publishDoneMsg(false);
+        publishDoneMsg(id, 0);
         return;
     }
 
@@ -85,7 +79,7 @@ void nextAnimation(Marks marks, string soundPath) {
         cout << "Unknown file type: " << fullPath << endl;
         manager.pauseBlink(false);
         free(vt.timing);
-        publishDoneMsg(false);
+        publishDoneMsg(id, 0);
         return;
     }
 
@@ -103,7 +97,7 @@ void nextAnimation(Marks marks, string soundPath) {
             manager.pauseBlink(false);
             free(vt.timing);
             play_audio.join();
-            publishDoneMsg(false);
+            publishDoneMsg(id, 0);
             return;
         }
 
@@ -131,7 +125,7 @@ void nextAnimation(Marks marks, string soundPath) {
 
     manager.pauseBlink(false);
 
-    publishDoneMsg(true);
+    publishDoneMsg(id, 1);
 }
 
 Marks getSpeechMarks(string marksPath) {
@@ -172,13 +166,13 @@ Marks getSpeechMarks(string marksPath) {
     return make_shared<map<int, ExpressionIndex>>(marks);
 }
 
-void audioPlayCallback(const rovy_msgs::AudioPlay& msg) {
+void audioPlayCallback(uint16_t id, string audioPath, string marksPath) {
     try {
-        if (!msg.audioPath.empty() && !msg.marksPath.empty()) {
-            Marks marks = getSpeechMarks(msg.marksPath);
-            string sound = msg.audioPath;
+        if (!audioPath.empty() && !marksPath.empty()) {
+            Marks marks = getSpeechMarks(marksPath);
+            string sound = audioPath;
 
-            thread animate(nextAnimation, marks, sound);
+            thread animate(nextAnimation, marks, sound, id);
             animate.detach();
         } else {
             cout << "Empty audioPath and/or marksPath" << endl;
@@ -189,7 +183,10 @@ void audioPlayCallback(const rovy_msgs::AudioPlay& msg) {
 }
 
 int main(int argc, char **argv) {
-    ros::init(argc, argv, "rovy_face_engine");
+    RovyRosHelperInit_t init = {argc, argv, "rovy_face_engine"};
+    RovyRosHelper &rosHelper = RovyRosHelper::getInstance(&init);
+    rosHelper.receiverRegister(ROVY_HELPER_AUDIO, audioPlayCallback);
+
     ExpressionManager &manager = ExpressionManager::getInstance();
 
     if (argc == 2 && strcmp(argv[1], "quiet") == 0) {
@@ -198,8 +195,5 @@ int main(int argc, char **argv) {
 
     manager.transition(HAPPY);
 
-    ros::NodeHandle nh;
-    ros::Subscriber audioPlaySub = nh.subscribe("rovy/action/audio_play", 1, audioPlayCallback);
-    audioDonePub = nh.advertise<rovy_msgs::AudioDone>("rovy/action/audio_done", 1);
-    ros::spin();
+    rosHelper.spin();
 }
