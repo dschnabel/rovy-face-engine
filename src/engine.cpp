@@ -185,7 +185,7 @@ void audioPlayCallback(uint16_t id, string audioPath, string marksPath) {
 int main(int argc, char **argv) {
     RovyRosHelperInit_t init = {argc, argv, "rovy_face_engine"};
     RovyRosHelper &rosHelper = RovyRosHelper::getInstance(&init);
-    rosHelper.receiverRegister(ROVY_HELPER_AUDIO, audioPlayCallback);
+    rosHelper.receiverRegister<AudioPlayCallback>(ROVY_HELPER_AUDIO, audioPlayCallback);
 
     ExpressionManager &manager = ExpressionManager::getInstance();
 
