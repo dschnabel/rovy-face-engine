@@ -7,6 +7,7 @@
 #include <map>
 
 using namespace std;
+using namespace std::placeholders;
 using json = nlohmann::json;
 
 typedef shared_ptr<map<int, ExpressionIndex>> Marks;
@@ -45,8 +46,7 @@ bool exists(string path) {
 }
 
 void publishDoneMsg(uint16_t id, int8_t status) {
-    RovyRosHelper &rosHelper = RovyRosHelper::getInstance();
-    rosHelper.done(id, status);
+    RovyRosHelper::getInstance().done(id, status);
 }
 
 void nextAnimation(Marks marks, string soundPath, uint16_t id) {
@@ -185,7 +185,7 @@ void audioPlayCallback(uint16_t id, string audioPath, string marksPath) {
 int main(int argc, char **argv) {
     RovyRosHelperInit_t init = {argc, argv, "rovy_face_engine"};
     RovyRosHelper &rosHelper = RovyRosHelper::getInstance(&init);
-    rosHelper.receiverRegister<AudioPlayCallback>(ROVY_HELPER_AUDIO, audioPlayCallback);
+    rosHelper.receiverRegister<AudioPlayCallback>(ROVY_HELPER_AUDIO, bind(audioPlayCallback, _1, _2, _3));
 
     ExpressionManager &manager = ExpressionManager::getInstance();
 
