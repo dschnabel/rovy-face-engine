@@ -46,7 +46,7 @@ bool exists(string path) {
 }
 
 void publishDoneMsg(uint16_t id, int8_t status) {
-    RovyRosHelper::getInstance().done(id, status);
+    RovyRosHelper::getInstance().done<rovy::AudioAction>(id, status);
 }
 
 void nextAnimation(Marks marks, string soundPath, uint16_t id) {
@@ -183,9 +183,9 @@ void audioPlayCallback(uint16_t id, string audioPath, string marksPath) {
 }
 
 int main(int argc, char **argv) {
-    RovyRosHelperInit_t init = {argc, argv, "rovy_face_engine"};
+    rovy::Init_t init = {argc, argv, "rovy_face_engine"};
     RovyRosHelper &rosHelper = RovyRosHelper::getInstance(&init);
-    rosHelper.receiverRegister<AudioPlayCallback>(ROVY_HELPER_AUDIO, bind(audioPlayCallback, _1, _2, _3));
+    rosHelper.receiverRegister<rovy::AudioAction, rovy::AudioPlayCallback>(bind(audioPlayCallback, _1, _2, _3));
 
     ExpressionManager &manager = ExpressionManager::getInstance();
 
