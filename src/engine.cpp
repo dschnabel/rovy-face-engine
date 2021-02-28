@@ -57,6 +57,9 @@ void nextAnimation(Marks marks, string soundPath, uint16_t id) {
         return;
     }
 
+    static int currentAnimationCount = 0;
+    currentAnimationCount++;
+
     ExpressionManager &manager = ExpressionManager::getInstance();
     manager.pauseBlink(true);
 
@@ -80,6 +83,7 @@ void nextAnimation(Marks marks, string soundPath, uint16_t id) {
         manager.pauseBlink(false);
         free(vt.timing);
         publishDoneMsg(id, 0);
+        currentAnimationCount--;
         return;
     }
 
@@ -98,6 +102,7 @@ void nextAnimation(Marks marks, string soundPath, uint16_t id) {
             free(vt.timing);
             play_audio.join();
             publishDoneMsg(id, 0);
+            currentAnimationCount--;
             return;
         }
 
@@ -112,7 +117,7 @@ void nextAnimation(Marks marks, string soundPath, uint16_t id) {
         }
     }
 
-    if (manager.getPausedBlinkCount() == 1) {
+    if (currentAnimationCount == 1) {
         ExpressionIndex exp = (*marks)[vt.timing[tCount-1]];
         //cout << "last mark: " << exp << ", index: " << tCount-1 << endl;
         manager.transition(exp);
@@ -126,6 +131,7 @@ void nextAnimation(Marks marks, string soundPath, uint16_t id) {
     manager.pauseBlink(false);
 
     publishDoneMsg(id, 1);
+    currentAnimationCount--;
 }
 
 Marks getSpeechMarks(string marksPath) {
@@ -182,10 +188,15 @@ void audioPlayCallback(uint16_t id, string audioPath, string marksPath) {
     }
 }
 
+void blinkCallback(bool pause) {
+    ExpressionManager::getInstance().pauseBlink(pause);
+}
+
 int main(int argc, char **argv) {
     rovy::Init_t init = {argc, argv, "rovy_face_engine"};
     RovyRosHelper &rosHelper = RovyRosHelper::getInstance(&init);
     rosHelper.receiverRegister<rovy::AudioAction, rovy::AudioPlayCallback>(bind(audioPlayCallback, _1, _2, _3));
+    rosHelper.receiverRegister<rovy::BlinkAction, rovy::BlinkCallback>(bind(blinkCallback, _1));
 
     ExpressionManager &manager = ExpressionManager::getInstance();
 
