@@ -8,6 +8,7 @@
 
 using namespace std;
 using namespace std::placeholders;
+using namespace rovy;
 using json = nlohmann::json;
 
 typedef shared_ptr<map<int, ExpressionIndex>> Marks;
@@ -46,14 +47,14 @@ bool exists(string path) {
 }
 
 void publishDoneMsg(uint16_t id, int8_t status) {
-    RovyRosHelper::getInstance().done<rovy::AudioAction>(id, status);
+    RovyRosHelper::getInstance().done<AudioAction>(id, status);
 }
 
 void nextAnimation(Marks marks, string soundPath, uint16_t id) {
     string fullPath = MEDIA_PATH + soundPath;
     if (!exists(fullPath)) {
         cout << "Invalid path: " << fullPath << endl;
-        publishDoneMsg(id, 0);
+        publishDoneMsg(id, status::SUBSCRIBER_ERR);
         return;
     }
 
@@ -82,7 +83,7 @@ void nextAnimation(Marks marks, string soundPath, uint16_t id) {
         cout << "Unknown file type: " << fullPath << endl;
         manager.pauseBlink(false);
         free(vt.timing);
-        publishDoneMsg(id, 0);
+        publishDoneMsg(id, status::SUBSCRIBER_ERR);
         currentAnimationCount--;
         return;
     }
@@ -101,7 +102,7 @@ void nextAnimation(Marks marks, string soundPath, uint16_t id) {
             manager.pauseBlink(false);
             free(vt.timing);
             play_audio.join();
-            publishDoneMsg(id, 0);
+            publishDoneMsg(id, status::SUBSCRIBER_ERR);
             currentAnimationCount--;
             return;
         }
@@ -130,7 +131,7 @@ void nextAnimation(Marks marks, string soundPath, uint16_t id) {
 
     manager.pauseBlink(false);
 
-    publishDoneMsg(id, 1);
+    publishDoneMsg(id, status::OK);
     currentAnimationCount--;
 }
 
@@ -193,10 +194,10 @@ void blinkCallback(bool pause) {
 }
 
 int main(int argc, char **argv) {
-    rovy::Init_t init = {argc, argv, "rovy_face_engine"};
+    Init_t init = {argc, argv, "rovy_face_engine"};
     RovyRosHelper &rosHelper = RovyRosHelper::getInstance(&init);
-    rosHelper.receiverRegister<rovy::AudioAction, rovy::AudioPlayCallback>(bind(audioPlayCallback, _1, _2, _3));
-    rosHelper.receiverRegister<rovy::BlinkAction, rovy::BlinkCallback>(bind(blinkCallback, _1));
+    rosHelper.receiverRegister<AudioAction, AudioPlayCallback>(bind(audioPlayCallback, _1, _2, _3));
+    rosHelper.receiverRegister<BlinkAction, BlinkCallback>(bind(blinkCallback, _1));
 
     ExpressionManager &manager = ExpressionManager::getInstance();
 
