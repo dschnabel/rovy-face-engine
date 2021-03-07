@@ -23,6 +23,9 @@ enum ExpressionIndex {
     HAPPY,
     SPEAK_OPEN,
     SPEAK_CLOSE,
+    FROWN,
+    FROWN_SPEAK_OPEN,
+    FROWN_SPEAK_CLOSE
 };
 
 class Expression {
@@ -54,6 +57,21 @@ public:
     SpeakCloseExpression() : Expression("speak-close.h264") {}
 };
 
+class FrownExpression: public Expression {
+public:
+    FrownExpression() : Expression("frown.h264", "frown-blink.h264") {}
+};
+
+class FrownSpeakOpenExpression: public Expression {
+public:
+    FrownSpeakOpenExpression() : Expression("speak-frown-open.h264") {}
+};
+
+class FrownSpeakCloseExpression: public Expression {
+public:
+    FrownSpeakCloseExpression() : Expression("speak-frown-close.h264") {}
+};
+
 class ExpressionManager {
 public:
     static ExpressionManager& getInstance() {
@@ -67,6 +85,7 @@ public:
     void setQuiet(bool quiet);
     void pauseBlink(bool pause);
     int getPausedBlinkCount();
+    void changeMood(bool isHappy);
 private:
     ExpressionManager();
     ~ExpressionManager();
@@ -78,6 +97,7 @@ private:
     string blinkAudio_;
     bool quiet_;
     int pauseBlink_;
+    bool isHappy_;
 };
 
 #endif /* SRC_EXPRESSION_HPP_ */

@@ -193,11 +193,16 @@ void blinkCallback(bool pause) {
     ExpressionManager::getInstance().pauseBlink(pause);
 }
 
+void changeMoodCallback(bool isHappy) {
+    ExpressionManager::getInstance().changeMood(isHappy);
+}
+
 int main(int argc, char **argv) {
     Init_t init = {argc, argv, "rovy_face_engine"};
     RovyRosHelper &rosHelper = RovyRosHelper::getInstance(&init);
     rosHelper.receiverRegister<AudioAction, AudioPlayCallback>(bind(audioPlayCallback, _1, _2, _3));
     rosHelper.receiverRegister<BlinkAction, BlinkCallback>(bind(blinkCallback, _1));
+    rosHelper.receiverRegister<ChangeMoodAction, ChangeMoodCallback>(bind(changeMoodCallback, _1));
 
     ExpressionManager &manager = ExpressionManager::getInstance();
 

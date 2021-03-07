@@ -61,19 +61,27 @@ bool Expression::play_video(string &buffer) {
 bool ExpressionManager::transition(ExpressionIndex e) {
     lock_guard<std::mutex> lock(transitionMutex_);
 
+    if (!isHappy_) {
+        switch (e) {
+        case HAPPY: e = FROWN; break;
+        case SPEAK_OPEN: e = FROWN_SPEAK_OPEN; break;
+        case SPEAK_CLOSE: e = FROWN_SPEAK_CLOSE; break;
+        }
+    }
+
     current_ = e;
 
     bool ret = expressions_[e]->still();
 
 	// in case of SPEAK_OPEN we need to close lips (SPEAK_CLOSE) again afterward
-    if (e == SPEAK_OPEN) {
+    if (e == SPEAK_OPEN ||e == FROWN_SPEAK_OPEN) {
         // add some randomized timing to make lip sync appear less predictable
         static random_device rd;
         static mt19937 rng(rd());
         static uniform_int_distribution<int> uni(70000, 90000);
 
         usleep(uni(rng));
-        expressions_[SPEAK_CLOSE]->still();
+        expressions_[e == SPEAK_OPEN ? SPEAK_CLOSE : FROWN_SPEAK_CLOSE]->still();
         usleep(uni(rng) - 40000);
     }
 
@@ -93,6 +101,11 @@ void ExpressionManager::pauseBlink(bool pause) {
 
 int ExpressionManager::getPausedBlinkCount() {
     return pauseBlink_;
+}
+
+void ExpressionManager::changeMood(bool isHappy) {
+    isHappy_ = isHappy;
+    transition(HAPPY);
 }
 
 void ExpressionManager::blinkerThread() {
@@ -122,10 +135,13 @@ void ExpressionManager::blinkerThread() {
     }
 }
 
-ExpressionManager::ExpressionManager() : current_(HAPPY), quiet_(false), pauseBlink_(0) {
+ExpressionManager::ExpressionManager() : current_(HAPPY), quiet_(false), pauseBlink_(0), isHappy_(true) {
     expressions_[HAPPY] = new HappyExpression();
     expressions_[SPEAK_OPEN] = new SpeakOpenExpression();
     expressions_[SPEAK_CLOSE] = new SpeakCloseExpression();
+    expressions_[FROWN] = new FrownExpression();
+    expressions_[FROWN_SPEAK_OPEN] = new FrownSpeakOpenExpression();
+    expressions_[FROWN_SPEAK_CLOSE] = new FrownSpeakCloseExpression();
 
     if (dd_init() != 0) {
         cout << "Error during video driver init!\n" << endl;
