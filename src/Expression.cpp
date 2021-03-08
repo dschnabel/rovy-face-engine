@@ -111,7 +111,7 @@ void ExpressionManager::changeMood(bool isHappy) {
 void ExpressionManager::blinkerThread() {
     random_device rd;
     mt19937 rng(rd());
-    uniform_int_distribution<int> uni(2, 10);
+    uniform_int_distribution<int> uni(10, 20);
     const char *blinkAudio = blinkAudio_.c_str();
     uint blinkAudioLen = blinkAudio_.length();
 
