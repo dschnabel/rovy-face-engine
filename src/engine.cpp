@@ -50,11 +50,27 @@ void publishDoneMsg(uint16_t id, int8_t status) {
     RovyRosHelper::getInstance().done<AudioAction>(id, status);
 }
 
-void nextAnimation(Marks marks, string soundPath, uint16_t id) {
+void deleteMedia(const string& soundPath, const string& marksPath) {
+    if (soundPath.rfind("tmp/", 0) == 0) {
+        string fullPath = MEDIA_PATH + soundPath;
+        if( remove(fullPath.c_str()) != 0 ) {
+            cout << "Could not delete file " << soundPath << endl;
+        }
+    }
+    if (marksPath.rfind("tmp/", 0) == 0) {
+        string fullPath = MEDIA_PATH + marksPath;
+        if( remove(fullPath.c_str()) != 0 ) {
+            cout << "Could not delete file " << marksPath << endl;
+        }
+    }
+}
+
+void nextAnimation(Marks marks, string soundPath, string marksPath, uint16_t id) {
     string fullPath = MEDIA_PATH + soundPath;
     if (!exists(fullPath)) {
         cout << "Invalid path: " << fullPath << endl;
         publishDoneMsg(id, status::SUBSCRIBER_ERR);
+        deleteMedia(soundPath, marksPath);
         return;
     }
 
@@ -84,6 +100,7 @@ void nextAnimation(Marks marks, string soundPath, uint16_t id) {
         manager.pauseBlink(false);
         free(vt.timing);
         publishDoneMsg(id, status::SUBSCRIBER_ERR);
+        deleteMedia(soundPath, marksPath);
         currentAnimationCount--;
         return;
     }
@@ -103,6 +120,7 @@ void nextAnimation(Marks marks, string soundPath, uint16_t id) {
             free(vt.timing);
             play_audio.join();
             publishDoneMsg(id, status::SUBSCRIBER_ERR);
+            deleteMedia(soundPath, marksPath);
             currentAnimationCount--;
             return;
         }
@@ -132,6 +150,7 @@ void nextAnimation(Marks marks, string soundPath, uint16_t id) {
     manager.pauseBlink(false);
 
     publishDoneMsg(id, status::OK);
+    deleteMedia(soundPath, marksPath);
     currentAnimationCount--;
 }
 
@@ -177,9 +196,8 @@ void audioPlayCallback(uint16_t id, string audioPath, string marksPath) {
     try {
         if (!audioPath.empty() && !marksPath.empty()) {
             Marks marks = getSpeechMarks(marksPath);
-            string sound = audioPath;
 
-            thread animate(nextAnimation, marks, sound, id);
+            thread animate(nextAnimation, marks, audioPath, marksPath, id);
             animate.detach();
         } else {
             cout << "Empty audioPath and/or marksPath" << endl;
