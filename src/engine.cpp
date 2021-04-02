@@ -192,7 +192,7 @@ Marks getSpeechMarks(string marksPath) {
     return make_shared<map<int, ExpressionIndex>>(marks);
 }
 
-void audioPlayCallback(uint16_t id, string audioPath, string marksPath) {
+void audioPlayCallback(uint16_t id, int8_t audioType, string audioPath, string marksPath) {
     try {
         if (!audioPath.empty() && !marksPath.empty()) {
             Marks marks = getSpeechMarks(marksPath);
@@ -218,7 +218,7 @@ void changeMoodCallback(bool isHappy) {
 int main(int argc, char **argv) {
     Init_t init = {argc, argv, "rovy_face_engine"};
     RovyRosHelper &rosHelper = RovyRosHelper::getInstance(&init);
-    rosHelper.receiverRegister<AudioAction, AudioPlayCallback>(bind(audioPlayCallback, _1, _2, _3));
+    rosHelper.receiverRegister<AudioAction, AudioPlayCallback>(bind(audioPlayCallback, _1, _2, _3, _4));
     rosHelper.receiverRegister<BlinkAction, BlinkCallback>(bind(blinkCallback, _1));
     rosHelper.receiverRegister<ChangeMoodAction, ChangeMoodCallback>(bind(changeMoodCallback, _1));
 
