@@ -211,8 +211,19 @@ void blinkCallback(bool pause) {
     ExpressionManager::getInstance().pauseBlink(pause);
 }
 
-void changeMoodCallback(bool isHappy) {
-    ExpressionManager::getInstance().changeMood(isHappy);
+void setFaceCallback(uint8_t type) {
+    ExpressionManager &manager = ExpressionManager::getInstance();
+    switch (type) {
+    case face_type::HAPPY:
+        manager.setFace(HAPPY);
+        break;
+    case face_type::FROWN:
+        manager.setFace(FROWN);
+        break;
+    case face_type::THINKING:
+        manager.setFace(THINKING);
+        break;
+    }
 }
 
 int main(int argc, char **argv) {
@@ -220,7 +231,7 @@ int main(int argc, char **argv) {
     RovyRosHelper &rosHelper = RovyRosHelper::getInstance(&init);
     rosHelper.receiverRegister<AudioAction, AudioPlayCallback>(bind(audioPlayCallback, _1, _2, _3, _4));
     rosHelper.receiverRegister<BlinkAction, BlinkCallback>(bind(blinkCallback, _1));
-    rosHelper.receiverRegister<ChangeMoodAction, ChangeMoodCallback>(bind(changeMoodCallback, _1));
+    rosHelper.receiverRegister<SetFaceAction, SetFaceCallback>(bind(setFaceCallback, _1));
 
     ExpressionManager &manager = ExpressionManager::getInstance();
 

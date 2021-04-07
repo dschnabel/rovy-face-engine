@@ -25,7 +25,8 @@ enum ExpressionIndex {
     SPEAK_CLOSE,
     FROWN,
     FROWN_SPEAK_OPEN,
-    FROWN_SPEAK_CLOSE
+    FROWN_SPEAK_CLOSE,
+    THINKING
 };
 
 class Expression {
@@ -72,6 +73,11 @@ public:
     FrownSpeakCloseExpression() : Expression("speak-frown-close.h264") {}
 };
 
+class ThinkingExpression: public Expression {
+public:
+    ThinkingExpression() : Expression("thinking.h264") {}
+};
+
 class ExpressionManager {
 public:
     static ExpressionManager& getInstance() {
@@ -85,7 +91,7 @@ public:
     void setQuiet(bool quiet);
     void pauseBlink(bool pause);
     int getPausedBlinkCount();
-    void changeMood(bool isHappy);
+    void setFace(ExpressionIndex exp);
 private:
     ExpressionManager();
     ~ExpressionManager();

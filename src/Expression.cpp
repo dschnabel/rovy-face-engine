@@ -103,9 +103,14 @@ int ExpressionManager::getPausedBlinkCount() {
     return pauseBlink_;
 }
 
-void ExpressionManager::changeMood(bool isHappy) {
-    isHappy_ = isHappy;
-    transition(HAPPY);
+void ExpressionManager::setFace(ExpressionIndex exp) {
+    if (exp == FROWN) {
+        isHappy_ = false;
+        transition(HAPPY);
+    } else {
+        isHappy_ = true;
+        transition(exp);
+    }
 }
 
 void ExpressionManager::blinkerThread() {
@@ -142,6 +147,7 @@ ExpressionManager::ExpressionManager() : current_(HAPPY), quiet_(false), pauseBl
     expressions_[FROWN] = new FrownExpression();
     expressions_[FROWN_SPEAK_OPEN] = new FrownSpeakOpenExpression();
     expressions_[FROWN_SPEAK_CLOSE] = new FrownSpeakCloseExpression();
+    expressions_[THINKING] = new ThinkingExpression();
 
     if (dd_init() != 0) {
         cout << "Error during video driver init!\n" << endl;
